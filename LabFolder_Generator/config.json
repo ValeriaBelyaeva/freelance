@@ -1,0 +1,22 @@
+{
+  "app_name": "LabFolder Generator",
+  "version": "1.0",
+  "gemini_api_key": "AIzaSyBO3VlytGpWr5YloX-4ElbBT32bE7IW7Wk",
+  "ai_prompt_template": "Выполни следующий алгоритм действий\nПроанализируй вложенный файл-условие и пользовательский запрос:\n{user_query}\nВыдели из анализа только грубую структуру директорий и названия файлов\nПосле уточни нейминг директорий/файлов и добавь пустые файлы по необходимости",
+  "default_output_folder": "",
+  "default_ascii_template": "MyProject/\n└── main.py",
+  "ascii_validation": {
+    "indent_char": " ",
+    "indent_size": 4,
+    "branch_prefix": "├── ",
+    "last_branch_prefix": "└── ",
+    "pipe_prefix": "│   ",
+    "space_prefix": "    ",
+    "dir_suffix": "/"
+  },
+  "ascii_editor_font_family": "Courier New",
+  "ascii_editor_font_size": 10,
+  "log_font_family": "Consolas",
+  "log_font_size": 9,
+  "highlight_error_duration_ms": 1000
+}
