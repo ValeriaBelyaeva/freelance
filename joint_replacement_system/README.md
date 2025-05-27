@@ -139,3 +139,5 @@ python joint_replacement_system.py
 Отредактируйте константный список внутри `joint_replacement_system`, содержащий `'paint_weights'`, `'skinningMethod'`.
 
 ---
+
+— Валерия Беляева, май 2025 г.
