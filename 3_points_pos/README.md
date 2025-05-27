@@ -7,15 +7,6 @@
 
 ## Функция `check_on_line`
 
-```python
-def check_on_line(
-    point1: tuple[float, float, float],
-    point2: tuple[float, float, float],
-    point3: tuple[float, float, float],
-    accuracy: float = 90.0
-) -> bool
-````
-
 ### Описание
 
 * Строятся два вектора:
