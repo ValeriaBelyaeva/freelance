@@ -1,7 +1,6 @@
 
 # Joint Replacement System  
 Документация к модулю `joint_replacement_system.py`
-*Версия 1.0 · Последнее обновление: 27 мая 2025 г.*
 
 ---
 
