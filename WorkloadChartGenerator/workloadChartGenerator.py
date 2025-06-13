@@ -8,23 +8,19 @@ import logging
 import os
 import tempfile
 from typing import Optional, Dict, Any
+from settings import REPORTS_JSON_PATH, DEFAULT_SMOOTHING
 
 
-class WorkloadChartGenerator:
+class WorkloadGraph:
     """
-    Makes and saves workload charts from raw data.
+    Класс для подготовки и визуализации графика рабочей нагрузки по входящим данным.
     """
-    
-    def __init__(self, raw: Dict[str, Any], year: int = 2025, smooth: int = 3):
-        """
-        Args:
-            raw (dict): Raw workload data
-            year (int): Year for the chart
-            smooth (int): Smoothing window size
-        """
-        self.raw = raw
-        self.year = year
-        self._smooth = smooth
+    def __init__(self, input_data, start_date=None, end_date=None, smoothing=DEFAULT_SMOOTHING):
+        self.input_data = input_data  # исходные данные для построения графика
+        self.current_year = datetime.now().year  # текущий год
+        self.start_date = start_date if start_date else datetime(self.current_year, 1, 8)
+        self.end_date = end_date if end_date else datetime.now()
+        self.smoothing = smoothing  # степень сглаживания
         self.base = None  # Data before smoothing
         self.data = None  # Data after smoothing
 
@@ -34,7 +30,7 @@ class WorkloadChartGenerator:
         Returns:
             int: Smoothing window size
         """
-        return self._smooth
+        return self.smoothing
 
     def set_smooth(self, value: int):
         """
@@ -42,26 +38,17 @@ class WorkloadChartGenerator:
         Args:
             value (int): New smoothing window size
         """
-        self._smooth = value
+        self.smoothing = value
         if self.base is not None:
             self._update_smooth()
         logging.info(f"Smooth set to {value}. Data updated.")
 
-    def prepare(self) -> 'WorkloadChartGenerator':
+    def prepare_data(self):
         """
-        Prepare data for chart. This method:
-        1. Aggregates workload percentages for each project and date from raw input.
-        2. Converts aggregated data into a pandas DataFrame.
-        3. Adds a datetime column for each date.
-        4. Creates a pivot table with dates as index and projects as columns.
-        5. Filters out rows where the total workload is zero (removes empty days).
-        6. Stores the result in self.base.
-        7. Calls _update_smooth to apply smoothing to the data.
-        Returns:
-            self
+        Готовит данные для построения графика, применяет сглаживание если задано.
         """
         agg = {}
-        for _, dates in self.raw.items():
+        for _, dates in self.input_data.items():
             for date, projs in dates.items():
                 for proj, (percent, _) in projs.items():
                     key = (date, proj)
@@ -72,7 +59,7 @@ class WorkloadChartGenerator:
         ]
         df = pd.DataFrame(recs)
         df["dt"] = df["date"].apply(
-            lambda d: datetime.strptime(f"{self.year}-{d}", "%Y-%m-%d")
+            lambda d: datetime.strptime(f"{self.current_year}-{d}", "%Y-%m-%d")
         )
         piv = (
             df.pivot_table(
@@ -84,62 +71,46 @@ class WorkloadChartGenerator:
         )
         mask = piv.sum(axis=1) > 0
         self.base = piv[mask]
-        self._update_smooth()
-        return self
+        if self.smoothing:
+            self._update_smooth()
 
-    def _update_smooth(self) -> 'WorkloadChartGenerator':
+    def _update_smooth(self) -> 'WorkloadGraph':
         """
         Update smoothed data using current smoothing window.
         Returns:
             self
         """
         if self.base is None:
-            raise ValueError("No data. Run prepare() first.")
-        if self._smooth and self._smooth > 1:
+            raise ValueError("No data. Run prepare_data() first.")
+        if self.smoothing and self.smoothing > 1:
             self.data = self.base.rolling(
-                window=self._smooth,
+                window=self.smoothing,
                 min_periods=1
             ).mean()
         else:
             self.data = self.base
         return self
 
-    def save(
-        self,
-        size: tuple = (14, 7),
-        legend: str = "upper left",
-        anchor: tuple = (1.02, 1),
-        show: bool = False
-    ) -> Optional[Path]:
+    def generate_graph(self):
         """
-        Save chart to file.
-        Args:
-            size (tuple): Figure size
-            legend (str): Legend location
-            anchor (tuple): Legend anchor
-            show (bool): Show plot
-        Returns:
-            Path or None
+        Строит график на основе подготовленных данных и сохраняет его во временный файл.
         """
         if self.data is None or self.data.empty:
             logging.warning("No data to show.")
             return None
-        fig, ax = plt.subplots(figsize=size)
+        fig, ax = plt.subplots(figsize=(14, 7))
         self.data.plot(ax=ax)
         date_form = DateFormatter("%m-%d")
         ax.xaxis.set_major_formatter(date_form)
         ax.set_xlabel("Date")
         ax.set_ylabel("Workload") 
         ax.set_title("Workload by Project") 
-        ax.legend(title="Project", loc=legend, bbox_to_anchor=anchor)
         plt.tight_layout()
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = Path(tempfile.gettempdir()) / f'workload_{ts}.png'
         try:
             fig.savefig(path, bbox_inches='tight')
             logging.info(f"Chart saved: {path}")
-            if show:
-                plt.show()
             plt.close(fig)
             return path
         except Exception as err:
@@ -147,24 +118,36 @@ class WorkloadChartGenerator:
             plt.close(fig)
             return None
 
+    def show_graph(self):
+        """
+        Показывает график для проверки корректности построения.
+        """
+        path = self.generate_graph()
+        if path:
+            logging.info(f"Done. Chart: {path}")
+        else:
+            logging.warning("Chart not saved.")
+
 
 def run(
     raw: Dict[str, Any],
-    year: int = 2025,
-    smooth: int = 3
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    smoothing: int = DEFAULT_SMOOTHING
 ) -> Optional[Path]:
     """
     Make and save workload chart in one call.
     Args:
         raw (dict): Raw data
-        year (int): Year
-        smooth (int): Smoothing window
+        start_date (datetime): Start date
+        end_date (datetime): End date
+        smoothing (int): Smoothing window
     Returns:
         Path or None
     """
-    gen = WorkloadChartGenerator(raw, year=year, smooth=smooth)
-    gen.prepare()
-    return gen.save()
+    graph = WorkloadGraph(raw, start_date, end_date, smoothing)
+    graph.prepare_data()
+    return graph.generate_graph()
 
 
 if __name__ == "__main__":
@@ -172,18 +155,17 @@ if __name__ == "__main__":
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
-    script_dir = Path(__file__).resolve().parent
-    json_file_path = script_dir / "reports.json"
-    logging.info(f"Looking for data file at: {json_file_path}")
+    logging.info(f"Looking for data file at: {REPORTS_JSON_PATH}")
     try:
-        with json_file_path.open("r", encoding="utf-8") as f:
-            raw = json.load(f)
-        chart_path = run(raw, year=2025, smooth=3)
+        with open(REPORTS_JSON_PATH, "r", encoding="utf-8") as file:
+            raw = json.load(file)
+        chart_path = run(raw)
         if chart_path:
-            logging.info(f"Done. Chart: {chart_path}")
+            graph = WorkloadGraph(raw)
+            graph.show_graph()
         else:
             logging.warning("Chart not saved.")
     except FileNotFoundError:
-        logging.error(f"No data file {json_file_path}.")
+        logging.error(f"No data file {REPORTS_JSON_PATH}.")
     except Exception as err:
         logging.error(f"Error: {err}", exc_info=True)

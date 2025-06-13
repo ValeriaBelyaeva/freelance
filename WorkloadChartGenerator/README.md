@@ -9,10 +9,11 @@
 | Функция                 | Описание                                                                                       |
 |-------------------------|---------------------------------------------------------------------------------------------------|
 | **Обработка данных**    | Агрегирует проценты по проектам и датам, фильтрует пустые дни.                                    |
-| **Сглаживание**         | Применяет скользящее среднее (размер окна настраивается через методы get_smooth/set_smooth).     |
+| **Сглаживание**         | Применяет скользящее среднее (размер окна настраивается через параметры или методы класса).       |
 | **Генерация графика**   | Строит график рабочей нагрузки по проектам во времени.                                           |
 | **Сохранение**          | Сохраняет график в PNG-файл во временную директорию (по умолчанию).                              |
 | **Логирование**         | Использует стандартный модуль logging для статуса и ошибок.                                      |
+| **Настройки**           | Все пути и параметры по умолчанию вынесены в settings.py.                                        |
 
 ---
 
@@ -32,6 +33,7 @@ WorkloadChartGenerator/
 ├── workloadChartGenerator.py # Основной модуль
 ├── reports.json              # Пример входных данных
 ├── requirements.txt          # Зависимости
+├── settings.py               # Все строковые параметры и дефолтные значения
 └── README.md                 # Этот файл
 ```
 
@@ -53,7 +55,10 @@ WorkloadChartGenerator/
     ```bash
     pip install -r requirements.txt
     ```
-4. **Запустите основной скрипт:**
+4. **Настройте параметры (опционально):**
+    - Все пути и параметры по умолчанию находятся в `settings.py`.
+    - По умолчанию используется файл `reports.json` и сглаживание окна 3.
+5. **Запустите основной скрипт:**
     ```bash
     python workloadChartGenerator.py
     ```
@@ -66,41 +71,42 @@ WorkloadChartGenerator/
 ### Инициализация
 
 ```python
-from workloadChartGenerator import WorkloadChartGenerator
+from workloadChartGenerator import WorkloadGraph
 import json
 
 with open('reports.json', encoding='utf-8') as f:
-    raw = json.load(f)
+    input_data = json.load(f)
 
-gen = WorkloadChartGenerator(raw, year=2025, smooth=3)
+graph = WorkloadGraph(input_data, smoothing=3)
 ```
-- `raw` (dict): Исходные данные (загрузите из JSON самостоятельно)
-- `year` (int, по умолчанию 2025): Год для дат
-- `smooth` (int, по умолчанию 3): Размер окна сглаживания (1 — без сглаживания)
+- `input_data` (dict): Исходные данные (загрузите из JSON самостоятельно)
+- `start_date` (datetime, опционально): Начальная дата (по умолчанию 8 января текущего года)
+- `end_date` (datetime, опционально): Конечная дата (по умолчанию сегодня)
+- `smoothing` (int, по умолчанию 3): Размер окна сглаживания (1 — без сглаживания)
 
 ### Основные методы
 
-- **prepare()** — готовит данные для графика (агрегирует, преобразует, фильтрует, вызывает сглаживание)
+- **prepare_data()** — готовит данные для графика (агрегирует, преобразует, фильтрует, вызывает сглаживание)
 - **get_smooth() / set_smooth(value)** — получить/установить размер окна сглаживания и автоматически обновить сглажённые данные
-- **save(size=(14,7), legend="upper left", anchor=(1.02,1), show=False)** — сохраняет график в PNG-файл во временную директорию, возвращает путь к файлу
+- **generate_graph()** — сохраняет график в PNG-файл во временную директорию, возвращает путь к файлу
+- **show_graph()** — строит и показывает график (используется для проверки)
 
 ### Пример
 
 ```python
 import json
-from workloadChartGenerator import WorkloadChartGenerator, run
+from workloadChartGenerator import WorkloadGraph
 
 with open('reports.json', encoding='utf-8') as f:
-    raw = json.load(f)
+    input_data = json.load(f)
 
-gen = WorkloadChartGenerator(raw, year=2025, smooth=3)
-gen.prepare()
-gen.set_smooth(5)  # изменить окно сглаживания
-chart_path = gen.save(show=True)
+graph = WorkloadGraph(input_data, smoothing=5)
+graph.prepare_data()
+graph.set_smooth(7)  # изменить окно сглаживания
+chart_path = graph.generate_graph()
 print(f'График сохранён: {chart_path}')
 
-# Быстрый способ:
-chart_path = run(raw, year=2025, smooth=3)
+graph.show_graph()  # показать график
 ```
 
 ---
@@ -108,9 +114,10 @@ chart_path = run(raw, year=2025, smooth=3)
 ## Примечания
 
 - Даты в `reports.json` должны быть в формате "ММ-ДД" (например, "01-15").
-- Скрипт связывает даты с указанным годом (`year`).
+- Скрипт связывает даты с текущим годом (или используйте start_date/end_date).
 - График сохраняется во временную директорию ОС (например, `/tmp` или `C:\Users\...\AppData\Local\Temp`).
 - Для логирования используется стандартный модуль logging.
+- Все строковые параметры и дефолтные значения — в `settings.py`.
 
 ---
 
